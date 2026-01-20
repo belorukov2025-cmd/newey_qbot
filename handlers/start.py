@@ -143,4 +143,4 @@ async def handle_callback(callback: CallbackQuery, state: FSMContext):
         points = 5 if "5" in data else 15
         quest_type = "solo" if "solo" in data else "group"
         # Пока просто текст — позже добавим реальные очки
-        text = f"Great job! You earned +{points} points! 🎉\nNewey is proud of you 🦝
+        text = f"Great job! You earned +{points} points! 🎉\nNewey is proud of you 🦝"
