@@ -6,14 +6,28 @@ from aiogram.fsm.state import State, StatesGroup
 
 router = Router()
 
-# Состояния для хранения message_id главного меню
+# Состояние для хранения ID главного сообщения
 class MenuStates(StatesGroup):
-    main_menu = State()
+    main_message = State()
 
-# Главное меню
+# Приветствие и главное меню
 @router.message(CommandStart())
 async def cmd_start(message: Message, state: FSMContext):
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+    keyboard = get_main_keyboard()
+
+    sent_message = await message.answer(
+        "Hi! This is Newey, your raccoon buddy from New York 🦝🌆\n"
+        "Here we disconnect from the noise and enjoy parks.\n"
+        "Choose below!",
+        reply_markup=keyboard
+    )
+    # Сохраняем ID этого сообщения
+    await state.set_state(MenuStates.main_message)
+    await state.update_data(main_msg_id=sent_message.message_id)
+
+# Функция для главного меню (чтобы легко возвращаться)
+def get_main_keyboard():
+    return InlineKeyboardMarkup(inline_keyboard=[
         [
             InlineKeyboardButton(text="Solo Quest 🧘‍♂️", callback_data="solo"),
             InlineKeyboardButton(text="Group Quest 👥", callback_data="group")
@@ -23,32 +37,23 @@ async def cmd_start(message: Message, state: FSMContext):
             InlineKeyboardButton(text="Yesterday's Gallery 🖼️", callback_data="gallery")
         ]
     ])
-    sent_message = await message.answer(
-        "Hi! This is Newey, your raccoon buddy from New York 🦝🌆\n"
-        "Here we disconnect from the noise and enjoy parks.\n"
-        "Choose below!",
-        reply_markup=keyboard
-    )
-    # Сохраняем ID сообщения меню
-    await state.set_state(MenuStates.main_menu)
-    await state.update_data(main_menu_msg_id=sent_message.message_id)
 
-# Обработка всех кнопок
+# Обработка всех кнопок — редактируем одно и то же сообщение
 @router.callback_query()
 async def handle_callback(callback: CallbackQuery, state: FSMContext):
     data = callback.data
 
-    # Получаем ID сообщения меню, чтобы редактировать его
+    # Получаем ID главного сообщения
     data_state = await state.get_data()
-    main_msg_id = data_state.get("main_menu_msg_id")
+    main_msg_id = data_state.get("main_msg_id")
 
     if main_msg_id is None:
-        # Если ID потерян — отправляем новое меню
+        # Если потеряли — создаём новое
         await cmd_start(callback.message, state)
         return
 
     text = ""
-    keyboard_back = InlineKeyboardMarkup(inline_keyboard=[
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="Back to Menu 🔙", callback_data="back")]
     ])
 
@@ -85,24 +90,12 @@ async def handle_callback(callback: CallbackQuery, state: FSMContext):
         )
 
     elif data == "back":
-        # Возвращаем главное меню
-        await callback.message.edit_text(
-            "Hi! This is Newey, your raccoon buddy from New York 🦝🌆\n"
-            "Here we disconnect from the noise and enjoy parks.\n"
-            "Choose below!",
-            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-                [
-                    InlineKeyboardButton(text="Solo Quest 🧘‍♂️", callback_data="solo"),
-                    InlineKeyboardButton(text="Group Quest 👥", callback_data="group")
-                ],
-                [
-                    InlineKeyboardButton(text="My Points & Badges 🏆", callback_data="profile"),
-                    InlineKeyboardButton(text="Yesterday's Gallery 🖼️", callback_data="gallery")
-                ]
-            ])
+        text = (
+            "How's your day going? 🌟\n"
+            "Newey is here to make it better with some park time!\n"
+            "Choose below:"
         )
-        await callback.answer()
-        return
+        keyboard = get_main_keyboard()  # возвращаем главное меню
 
     # Редактируем главное сообщение
     try:
@@ -110,11 +103,11 @@ async def handle_callback(callback: CallbackQuery, state: FSMContext):
             chat_id=callback.message.chat.id,
             message_id=main_msg_id,
             text=text,
-            reply_markup=keyboard_back
+            reply_markup=keyboard
         )
-    except:
-        # Если сообщение удалено — отправляем новое
-        sent = await callback.message.answer(text, reply_markup=keyboard_back)
-        await state.update_data(main_menu_msg_id=sent.message_id)
+    except Exception as e:
+        # Если сообщение удалено или ошибка — отправляем новое
+        sent = await callback.message.answer(text, reply_markup=keyboard)
+        await state.update_data(main_msg_id=sent.message_id)
 
     await callback.answer()
